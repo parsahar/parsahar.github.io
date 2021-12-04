@@ -1,212 +1,262 @@
 /*
-	Astral by HTML5 UP
+	Editorial by HTML5 UP
 	html5up.net | @ajlkn
 	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
 */
 
 (function($) {
 
-	var $window = $(window),
-		$body = $('body'),
-		$wrapper = $('#wrapper'),
-		$main = $('#main'),
-		$panels = $main.children('.panel'),
-		$nav = $('#nav'), $nav_links = $nav.children('a');
+	var	$window = $(window),
+		$head = $('head'),
+		$body = $('body');
 
 	// Breakpoints.
 		breakpoints({
-			xlarge:  [ '1281px',  '1680px' ],
-			large:   [ '981px',   '1280px' ],
-			medium:  [ '737px',   '980px'  ],
-			small:   [ '361px',   '736px'  ],
-			xsmall:  [ null,      '360px'  ]
+			xlarge:   [ '1281px',  '1680px' ],
+			large:    [ '981px',   '1280px' ],
+			medium:   [ '737px',   '980px'  ],
+			small:    [ '481px',   '736px'  ],
+			xsmall:   [ '361px',   '480px'  ],
+			xxsmall:  [ null,      '360px'  ],
+			'xlarge-to-max':    '(min-width: 1681px)',
+			'small-to-xlarge':  '(min-width: 481px) and (max-width: 1680px)'
 		});
 
-	// Play initial animations on page load.
-		$window.on('load', function() {
-			window.setTimeout(function() {
-				$body.removeClass('is-preload');
-			}, 100);
-		});
+	// Stops animations/transitions until the page has ...
 
-	// Nav.
-		$nav_links
-			.on('click', function(event) {
+		// ... loaded.
+			$window.on('load', function() {
+				window.setTimeout(function() {
+					$body.removeClass('is-preload');
+				}, 100);
+			});
 
-				var href = $(this).attr('href');
+		// ... stopped resizing.
+			var resizeTimeout;
 
-				// Not a panel link? Bail.
-					if (href.charAt(0) != '#'
-					||	$panels.filter(href).length == 0)
-						return;
+			$window.on('resize', function() {
 
-				// Prevent default.
-					event.preventDefault();
-					event.stopPropagation();
+				// Mark as resizing.
+					$body.addClass('is-resizing');
 
-				// Change panels.
-					if (window.location.hash != href)
-						window.location.hash = href;
+				// Unmark after delay.
+					clearTimeout(resizeTimeout);
+
+					resizeTimeout = setTimeout(function() {
+						$body.removeClass('is-resizing');
+					}, 100);
 
 			});
 
-	// Panels.
+	// Fixes.
 
-		// Initialize.
-			(function() {
+		// Object fit images.
+			if (!browser.canUse('object-fit')
+			||	browser.name == 'safari')
+				$('.image.object').each(function() {
 
-				var $panel, $link;
+					var $this = $(this),
+						$img = $this.children('img');
 
-				// Get panel, link.
-					if (window.location.hash) {
+					// Hide original image.
+						$img.css('opacity', '0');
 
-				 		$panel = $panels.filter(window.location.hash);
-						$link = $nav_links.filter('[href="' + window.location.hash + '"]');
+					// Set background.
+						$this
+							.css('background-image', 'url("' + $img.attr('src') + '")')
+							.css('background-size', $img.css('object-fit') ? $img.css('object-fit') : 'cover')
+							.css('background-position', $img.css('object-position') ? $img.css('object-position') : 'center');
 
-					}
+				});
 
-				// No panel/link? Default to first.
-					if (!$panel
-					||	$panel.length == 0) {
+	// Sidebar.
+		var $sidebar = $('#sidebar'),
+			$sidebar_inner = $sidebar.children('.inner');
 
-						$panel = $panels.first();
-						$link = $nav_links.first();
+		// Inactive by default on <= large.
+			breakpoints.on('<=large', function() {
+				$sidebar.addClass('inactive');
+			});
 
-					}
+			breakpoints.on('>large', function() {
+				$sidebar.removeClass('inactive');
+			});
 
-				// Deactivate all panels except this one.
-					$panels.not($panel)
-						.addClass('inactive')
-						.hide();
+		// Hack: Workaround for Chrome/Android scrollbar position bug.
+			if (browser.os == 'android'
+			&&	browser.name == 'chrome')
+				$('<style>#sidebar .inner::-webkit-scrollbar { display: none; }</style>')
+					.appendTo($head);
 
-				// Activate link.
-					$link
-						.addClass('active');
+		// Toggle.
+			$('<a href="#sidebar" class="toggle">Toggle</a>')
+				.appendTo($sidebar)
+				.on('click', function(event) {
 
-				// Reset scroll.
-					$window.scrollTop(0);
+					// Prevent default.
+						event.preventDefault();
+						event.stopPropagation();
 
-			})();
+					// Toggle.
+						$sidebar.toggleClass('inactive');
 
-		// Hashchange event.
-			$window.on('hashchange', function(event) {
+				});
 
-				var $panel, $link;
+		// Events.
 
-				// Get panel, link.
-					if (window.location.hash) {
+			// Link clicks.
+				$sidebar.on('click', 'a', function(event) {
 
-				 		$panel = $panels.filter(window.location.hash);
-						$link = $nav_links.filter('[href="' + window.location.hash + '"]');
+					// >large? Bail.
+						if (breakpoints.active('>large'))
+							return;
 
-						// No target panel? Bail.
-							if ($panel.length == 0)
+					// Vars.
+						var $a = $(this),
+							href = $a.attr('href'),
+							target = $a.attr('target');
+
+					// Prevent default.
+						event.preventDefault();
+						event.stopPropagation();
+
+					// Check URL.
+						if (!href || href == '#' || href == '')
+							return;
+
+					// Hide sidebar.
+						$sidebar.addClass('inactive');
+
+					// Redirect to href.
+						setTimeout(function() {
+
+							if (target == '_blank')
+								window.open(href);
+							else
+								window.location.href = href;
+
+						}, 500);
+
+				});
+
+			// Prevent certain events inside the panel from bubbling.
+				$sidebar.on('click touchend touchstart touchmove', function(event) {
+
+					// >large? Bail.
+						if (breakpoints.active('>large'))
+							return;
+
+					// Prevent propagation.
+						event.stopPropagation();
+
+				});
+
+			// Hide panel on body click/tap.
+				$body.on('click touchend', function(event) {
+
+					// >large? Bail.
+						if (breakpoints.active('>large'))
+							return;
+
+					// Deactivate.
+						$sidebar.addClass('inactive');
+
+				});
+
+		// Scroll lock.
+		// Note: If you do anything to change the height of the sidebar's content, be sure to
+		// trigger 'resize.sidebar-lock' on $window so stuff doesn't get out of sync.
+
+			$window.on('load.sidebar-lock', function() {
+
+				var sh, wh, st;
+
+				// Reset scroll position to 0 if it's 1.
+					if ($window.scrollTop() == 1)
+						$window.scrollTop(0);
+
+				$window
+					.on('scroll.sidebar-lock', function() {
+
+						var x, y;
+
+						// <=large? Bail.
+							if (breakpoints.active('<=large')) {
+
+								$sidebar_inner
+									.data('locked', 0)
+									.css('position', '')
+									.css('top', '');
+
 								return;
 
-					}
+							}
 
-				// No panel/link? Default to first.
-					else {
+						// Calculate positions.
+							x = Math.max(sh - wh, 0);
+							y = Math.max(0, $window.scrollTop() - x);
 
-						$panel = $panels.first();
-						$link = $nav_links.first();
+						// Lock/unlock.
+							if ($sidebar_inner.data('locked') == 1) {
 
-					}
+								if (y <= 0)
+									$sidebar_inner
+										.data('locked', 0)
+										.css('position', '')
+										.css('top', '');
+								else
+									$sidebar_inner
+										.css('top', -1 * x);
 
-				// Deactivate all panels.
-					$panels.addClass('inactive');
+							}
+							else {
 
-				// Deactivate all links.
-					$nav_links.removeClass('active');
+								if (y > 0)
+									$sidebar_inner
+										.data('locked', 1)
+										.css('position', 'fixed')
+										.css('top', -1 * x);
 
-				// Activate target link.
-					$link.addClass('active');
+							}
 
-				// Set max/min height.
-					$main
-						.css('max-height', $main.height() + 'px')
-						.css('min-height', $main.height() + 'px');
+					})
+					.on('resize.sidebar-lock', function() {
 
-				// Delay.
-					setTimeout(function() {
+						// Calculate heights.
+							wh = $window.height();
+							sh = $sidebar_inner.outerHeight() + 30;
 
-						// Hide all panels.
-							$panels.hide();
+						// Trigger scroll.
+							$window.trigger('scroll.sidebar-lock');
 
-						// Show target panel.
-							$panel.show();
+					})
+					.trigger('resize.sidebar-lock');
 
-						// Set new max/min height.
-							$main
-								.css('max-height', $panel.outerHeight() + 'px')
-								.css('min-height', $panel.outerHeight() + 'px');
+				});
 
-						// Reset scroll.
-							$window.scrollTop(0);
+	// Menu.
+		var $menu = $('#menu'),
+			$menu_openers = $menu.children('ul').find('.opener');
 
-						// Delay.
-							window.setTimeout(function() {
+		// Openers.
+			$menu_openers.each(function() {
 
-								// Activate target panel.
-									$panel.removeClass('inactive');
+				var $this = $(this);
 
-								// Clear max/min height.
-									$main
-										.css('max-height', '')
-										.css('min-height', '');
+				$this.on('click', function(event) {
 
-								// IE: Refresh.
-									$window.triggerHandler('--refresh');
+					// Prevent default.
+						event.preventDefault();
 
-								// Unlock.
-									locked = false;
+					// Toggle.
+						$menu_openers.not($this).removeClass('active');
+						$this.toggleClass('active');
 
-							}, (breakpoints.active('small') ? 0 : 500));
+					// Trigger resize (sidebar lock).
+						$window.triggerHandler('resize.sidebar-lock');
 
-					}, 250);
+				});
 
 			});
-
-	// IE: Fixes.
-		if (browser.name == 'ie') {
-
-			// Fix min-height/flexbox.
-				$window.on('--refresh', function() {
-
-					$wrapper.css('height', 'auto');
-
-					window.setTimeout(function() {
-
-						var h = $wrapper.height(),
-							wh = $window.height();
-
-						if (h < wh)
-							$wrapper.css('height', '100vh');
-
-					}, 0);
-
-				});
-
-				$window.on('resize load', function() {
-					$window.triggerHandler('--refresh');
-				});
-
-			// Fix intro pic.
-				$('.panel.intro').each(function() {
-
-					var $pic = $(this).children('.pic'),
-						$img = $pic.children('img');
-
-					$pic
-						.css('background-image', 'url(' + $img.attr('src') + ')')
-						.css('background-size', 'cover')
-						.css('background-position', 'center');
-
-					$img
-						.css('visibility', 'hidden');
-
-				});
-
-		}
 
 })(jQuery);
